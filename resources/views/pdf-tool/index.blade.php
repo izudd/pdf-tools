@@ -37,10 +37,10 @@
 
             <div class="bg-white rounded-3xl shadow-lg shadow-purple-500/5 border-2 border-purple-100/50 overflow-hidden">
                 <form action="{{ route('pdf-tool.upload') }}" method="POST" enctype="multipart/form-data"
-                      x-data="{ files: null, dragging: false }"
+                      x-data="{ files: [], dragging: false }"
                       @dragover.prevent="dragging = true"
                       @dragleave.prevent="dragging = false"
-                      @drop.prevent="dragging = false; files = $event.dataTransfer.files; $refs.fileInput.files = $event.dataTransfer.files">
+                      @drop.prevent="dragging = false; files = Array.from($event.dataTransfer.files); $refs.fileInput.files = $event.dataTransfer.files">
                     @csrf
 
                     <!-- Upload Zone -->
@@ -65,8 +65,8 @@
                                 </div>
 
                                 <p class="text-gray-700 font-extrabold text-lg mb-1">
-                                    <span x-show="!files || files.length === 0">Taruh file PDF di sini!</span>
-                                    <span x-show="files && files.length > 0" class="text-purple-600">
+                                    <span x-show="files.length === 0">Taruh file PDF di sini!</span>
+                                    <span x-show="files.length > 0" class="text-purple-600">
                                         🎉 <span x-text="files.length"></span> file siap di-upload!
                                     </span>
                                 </p>
@@ -74,7 +74,7 @@
 
                                 <input type="file" name="files[]" multiple accept=".pdf" required
                                        x-ref="fileInput"
-                                       @change="files = $event.target.files"
+                                       @change="files = Array.from($event.target.files)"
                                        class="hidden">
 
                                 <span class="inline-flex items-center gap-2 px-5 py-2 bg-purple-50 text-purple-500 text-xs font-bold rounded-full border border-purple-100">
