@@ -19,6 +19,18 @@
     }">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 
+            @if(session('warnings'))
+                <div class="mb-6 p-4 bg-amber-50 border-2 border-amber-200 rounded-2xl">
+                    <div class="flex items-center gap-2 mb-1">
+                        <span class="text-xl">&#x26A0;&#xFE0F;</span>
+                        <span class="font-bold text-amber-800 text-sm">Beberapa file tidak bisa diproses:</span>
+                    </div>
+                    @foreach(session('warnings') as $warning)
+                        <p class="text-amber-600 text-sm ml-8">{{ $warning }}</p>
+                    @endforeach
+                </div>
+            @endif
+
             <!-- Step Indicator -->
             <div class="mb-6 flex items-center justify-center gap-3">
                 <div class="flex items-center gap-2">

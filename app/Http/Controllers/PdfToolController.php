@@ -23,6 +23,7 @@ class PdfToolController extends Controller
         ]);
 
         $uploadedFiles = [];
+        $errors = [];
 
         foreach ($request->file('files') as $file) {
 
@@ -30,15 +31,30 @@ class PdfToolController extends Controller
             $storedName = Str::slug($originalName) . '_' . Str::random(8) . '.pdf';
             $path = $file->storeAs('pdf_uploads', $storedName);
 
-            $pdf = new Fpdi();
-            $pageCount = $pdf->setSourceFile(storage_path('app/' . $path));
+            try {
+                $pdf = new Fpdi();
+                $pageCount = $pdf->setSourceFile(storage_path('app/' . $path));
 
-            $uploadedFiles[] = [
-                'path' => $path,
-                'original_name' => $file->getClientOriginalName(),
-                'name_without_ext' => $originalName,
-                'total_pages' => $pageCount
-            ];
+                $uploadedFiles[] = [
+                    'path' => $path,
+                    'original_name' => $file->getClientOriginalName(),
+                    'name_without_ext' => $originalName,
+                    'total_pages' => $pageCount
+                ];
+            } catch (\Exception $e) {
+                // Hapus file yang gagal
+                Storage::delete($path);
+                Log::warning("FPDI gagal baca file [{$file->getClientOriginalName()}]: " . $e->getMessage());
+                $errors[] = "File \"{$file->getClientOriginalName()}\" tidak bisa diproses. PDF mungkin menggunakan kompresi yang tidak didukung.";
+            }
+        }
+
+        if (empty($uploadedFiles)) {
+            return back()->withErrors($errors);
+        }
+
+        if (!empty($errors)) {
+            session()->flash('warnings', $errors);
         }
 
         return view('pdf-tool.process', compact('uploadedFiles'));
@@ -58,24 +74,29 @@ class PdfToolController extends Controller
             abort(404, 'File tidak ditemukan');
         }
 
-        // Extract single page to temp file for preview
-        $pdf = new Fpdi();
-        $totalPages = $pdf->setSourceFile($filePath);
+        try {
+            // Extract single page to temp file for preview
+            $pdf = new Fpdi();
+            $totalPages = $pdf->setSourceFile($filePath);
 
-        if ($page < 1 || $page > $totalPages) {
-            abort(400, 'Halaman tidak valid');
+            if ($page < 1 || $page > $totalPages) {
+                abort(400, 'Halaman tidak valid');
+            }
+
+            $template = $pdf->importPage($page);
+            $size = $pdf->getTemplateSize($template);
+
+            $pdf->AddPage($size['orientation'], [$size['width'], $size['height']]);
+            $pdf->useTemplate($template);
+
+            // Output directly to browser
+            return response($pdf->Output('S'))
+                ->header('Content-Type', 'application/pdf')
+                ->header('Content-Disposition', 'inline; filename="preview-page-' . $page . '.pdf"');
+        } catch (\Exception $e) {
+            Log::warning("Preview gagal: " . $e->getMessage());
+            abort(422, 'PDF tidak bisa di-preview. Format kompresi tidak didukung.');
         }
-
-        $template = $pdf->importPage($page);
-        $size = $pdf->getTemplateSize($template);
-
-        $pdf->AddPage($size['orientation'], [$size['width'], $size['height']]);
-        $pdf->useTemplate($template);
-
-        // Output directly to browser
-        return response($pdf->Output('S'))
-            ->header('Content-Type', 'application/pdf')
-            ->header('Content-Disposition', 'inline; filename="preview-page-' . $page . '.pdf"');
     }
 
     public function process(Request $request)
